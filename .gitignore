@@ -67,4 +67,9 @@ __pycache__/
 *.dylib
 
 # Android SDK
-android-sdk/
+android-sdk/backend/.env
+frontend/.env
+*.log
+node_modules/
+__pycache__/
+.DS_Store
