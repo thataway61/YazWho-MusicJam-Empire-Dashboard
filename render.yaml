@@ -1,0 +1,22 @@
+{
+  "services": [
+    {
+      "type": "web",
+      "name": "thataway61/YazWho-MusicJam-Empire-Dashboard-backend",
+      "env": "python",
+      "plan": "free",
+      "buildCommand": "pip install -r requirements.txt",
+      "startCommand": "uvicorn server:app --host 0.0.0.0 --port $PORT",
+      "rootDir": "backend",
+      "envVars": [
+        {
+          "key": "MONGO_URL",
+          "fromDatabase": {
+            "name": "thataway61/YazWho-MusicJam-Empire-Dashboard-db",
+            "property": "connectionString"
+          }
+        }
+      ]
+    }
+  ]
+}
