@@ -131,7 +131,7 @@ function App() {
               <div className="ml-4 text-sm text-purple-300">v2.0</div>
             </div>
             <nav className="flex space-x-8">
-              {['dashboard', 'projects', 'musicjam', 'deployments', 'ai-tools'].map((view) => (
+              {['dashboard', 'projects', 'musicjam', 'deployments', 'deployment-center', 'ai-tools'].map((view) => (
                 <button
                   key={view}
                   onClick={() => setCurrentView(view)}
