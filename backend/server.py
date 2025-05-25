@@ -242,7 +242,7 @@ async def enhance_musicjam(enhancement: AIEnhancementRequest):
         Focus on creating engaging music discovery and social features.
         """
         
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         
         # Save enhancement suggestion
