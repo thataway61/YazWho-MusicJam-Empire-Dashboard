@@ -326,10 +326,16 @@ async def get_musicjam_enhancements():
         raise HTTPException(status_code=500, detail=f"Failed to fetch enhancements: {str(e)}")
 
 # Deployment Routes
-@app.post("/api/deploy/enhancement/{enhancement_id}")
-async def deploy_enhancement(enhancement_id: str, deployment_target: str = "staging"):
+@app.post("/api/deploy/enhancement")
+async def deploy_enhancement(deployment_request: dict):
     """Deploy a specific AI enhancement to MusicJam"""
     try:
+        enhancement_id = deployment_request.get("enhancement_id")
+        deployment_target = deployment_request.get("deployment_target", "staging")
+        
+        if not enhancement_id:
+            raise HTTPException(status_code=400, detail="enhancement_id is required")
+            
         # Get enhancement from database
         enhancement = await db.musicjam_enhancements.find_one({"id": enhancement_id}, {"_id": 0})
         if not enhancement:
