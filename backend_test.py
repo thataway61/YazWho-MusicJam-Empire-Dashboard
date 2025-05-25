@@ -1,417 +1,315 @@
 #!/usr/bin/env python3
 """
-YazWho Empire Dashboard Backend API Testing Suite
-Tests all API endpoints for functionality, integration, and data persistence
+Backend API Testing for YazWho Empire Dashboard - MusicJam Focus
+Tests the transformed MusicJam functionality and all backend APIs
 """
 
 import requests
-import json
 import sys
-from datetime import datetime
-from typing import Dict, Any, Optional
+import json
+from datetime import datetime, timedelta
+from typing import Dict, List, Any
 
-class YazWhoEmpireAPITester:
-    def __init__(self, base_url: str = "https://69bffd45-7c2d-4493-8fe2-c08c0721f2f3.preview.emergentagent.com"):
+class MusicJamAPITester:
+    def __init__(self, base_url="https://69bffd45-7c2d-4493-8fe2-c08c0721f2f3.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
         self.test_results = []
-        self.session = requests.Session()
-        self.session.headers.update({'Content-Type': 'application/json'})
 
-    def log_test(self, name: str, success: bool, details: str = "", response_data: Any = None):
+    def log_test(self, name: str, success: bool, details: str = ""):
         """Log test result"""
         self.tests_run += 1
         if success:
             self.tests_passed += 1
+            print(f"✅ {name}")
+        else:
+            print(f"❌ {name} - {details}")
         
-        result = {
-            "test": name,
+        self.test_results.append({
+            "name": name,
             "success": success,
             "details": details,
-            "response_data": response_data,
             "timestamp": datetime.now().isoformat()
-        }
-        self.test_results.append(result)
-        
-        status = "✅ PASS" if success else "❌ FAIL"
-        print(f"{status} | {name}")
-        if details:
-            print(f"     Details: {details}")
-        if not success and response_data:
-            print(f"     Response: {response_data}")
-        print()
+        })
 
-    def test_api_endpoint(self, method: str, endpoint: str, expected_status: int = 200, 
-                         data: Optional[Dict] = None, params: Optional[Dict] = None) -> tuple:
-        """Generic API endpoint tester"""
-        url = f"{self.base_url}{endpoint}"
-        
+    def run_test(self, name: str, method: str, endpoint: str, expected_status: int, data: Dict = None) -> tuple:
+        """Run a single API test"""
+        url = f"{self.base_url}/{endpoint}"
+        headers = {'Content-Type': 'application/json'}
+
         try:
-            if method.upper() == 'GET':
-                response = self.session.get(url, params=params, timeout=10)
-            elif method.upper() == 'POST':
-                response = self.session.post(url, json=data, params=params, timeout=10)
-            else:
-                return False, f"Unsupported method: {method}", {}
+            if method == 'GET':
+                response = requests.get(url, headers=headers, timeout=10)
+            elif method == 'POST':
+                response = requests.post(url, json=data, headers=headers, timeout=10)
+            elif method == 'PUT':
+                response = requests.put(url, json=data, headers=headers, timeout=10)
+            elif method == 'DELETE':
+                response = requests.delete(url, headers=headers, timeout=10)
 
             success = response.status_code == expected_status
+            response_data = {}
             
             try:
-                response_json = response.json()
+                response_data = response.json()
             except:
-                response_json = {"raw_response": response.text}
+                response_data = {"raw_response": response.text}
 
+            details = f"Status: {response.status_code}"
             if not success:
-                details = f"Expected {expected_status}, got {response.status_code}"
-            else:
-                details = f"Status {response.status_code} - OK"
+                details += f", Expected: {expected_status}, Response: {response.text[:200]}"
 
-            return success, details, response_json
+            self.log_test(name, success, details)
+            return success, response_data
 
-        except requests.exceptions.Timeout:
-            return False, "Request timeout (10s)", {}
-        except requests.exceptions.ConnectionError:
-            return False, "Connection error - server may be down", {}
         except Exception as e:
-            return False, f"Unexpected error: {str(e)}", {}
+            self.log_test(name, False, f"Exception: {str(e)}")
+            return False, {}
 
     def test_basic_endpoints(self):
-        """Test basic API endpoints"""
-        print("🔍 Testing Basic API Endpoints...")
+        """Test basic Empire Dashboard endpoints"""
+        print("\n🔍 Testing Basic Empire Dashboard Endpoints...")
         
         # Test root endpoint
-        success, details, data = self.test_api_endpoint('GET', '/api')
-        self.log_test("Root API Endpoint", success, details, data)
+        self.run_test("Root API", "GET", "api", 200)
         
         # Test status endpoint
-        success, details, data = self.test_api_endpoint('GET', '/api/status')
-        self.log_test("Status Endpoint", success, details, data)
+        self.run_test("Status Check", "GET", "api/status", 200)
         
-        return self.tests_passed > 0
+        # Test empire overview
+        self.run_test("Empire Overview", "GET", "api/empire/overview", 200)
 
-    def test_empire_overview(self):
-        """Test empire overview endpoint"""
-        print("🏰 Testing Empire Overview...")
+    def test_musicjam_genres(self):
+        """Test MusicJam genres endpoint"""
+        print("\n🎵 Testing MusicJam Genres...")
         
-        success, details, data = self.test_api_endpoint('GET', '/api/empire/overview')
-        self.log_test("Empire Overview", success, details, data)
+        success, data = self.run_test("Get Genres", "GET", "api/musicjam/genres", 200)
         
-        if success and data:
-            # Validate response structure
-            required_fields = ['empire_status', 'musicjam_app', 'managed_projects', 'ai_enhancements', 'integrations']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                self.log_test("Empire Overview Structure", False, f"Missing fields: {missing_fields}")
+        if success and 'genres' in data:
+            genres = data['genres']
+            if len(genres) == 20:
+                self.log_test("Genres Count (20)", True)
             else:
-                self.log_test("Empire Overview Structure", True, "All required fields present")
-                
-                # Check MusicJam status
-                musicjam_status = data.get('musicjam_app', {}).get('status')
-                self.log_test("MusicJam Live Status Check", 
-                            musicjam_status in ['online', 'offline', 'issues'],
-                            f"MusicJam status: {musicjam_status}")
-
-    def test_github_integration(self):
-        """Test GitHub integration endpoints"""
-        print("🐙 Testing GitHub Integration...")
-        
-        # Test repositories endpoint
-        success, details, data = self.test_api_endpoint('GET', '/api/github/repositories')
-        self.log_test("GitHub Repositories", success, details, data)
-        
-        if success and data:
-            repos = data.get('repositories', [])
-            self.log_test("GitHub Repositories Count", 
-                        len(repos) > 0, 
-                        f"Found {len(repos)} repositories")
+                self.log_test("Genres Count (20)", False, f"Found {len(genres)} genres")
             
-            # Check for YazWho-MusicJam-Empire-Dashboard repo
-            empire_repo = any(repo.get('name') == 'YazWho-MusicJam-Empire-Dashboard' for repo in repos)
-            self.log_test("Empire Dashboard Repository Found", 
-                        empire_repo, 
-                        "YazWho-MusicJam-Empire-Dashboard repository detected" if empire_repo else "Repository not found")
-
-    def test_ai_integrations(self):
-        """Test AI integration endpoints"""
-        print("🤖 Testing AI Integrations...")
+            # Check for expected genres
+            expected_genres = ["Rock", "Pop", "Jazz", "Blues", "Classical"]
+            for genre in expected_genres:
+                if genre in genres:
+                    self.log_test(f"Genre '{genre}' exists", True)
+                else:
+                    self.log_test(f"Genre '{genre}' exists", False)
         
-        # Test MusicJam enhancement generation
-        enhancement_data = {
-            "musicjam_feature": "playlist-management",
-            "enhancement_type": "recommendation",
+        return success, data.get('genres', []) if success else []
+
+    def test_jam_sessions_crud(self):
+        """Test Jam Sessions CRUD operations"""
+        print("\n🎸 Testing Jam Sessions CRUD...")
+        
+        # Test GET jam sessions (empty or with existing data)
+        success, data = self.run_test("Get Jam Sessions", "GET", "api/musicjam/jam-sessions", 200)
+        initial_sessions = data.get('jam_sessions', []) if success else []
+        
+        print(f"   Found {len(initial_sessions)} existing jam sessions")
+        
+        # Test filtering by status
+        self.run_test("Filter by Status (Upcoming)", "GET", "api/musicjam/jam-sessions?status=upcoming", 200)
+        self.run_test("Filter by Status (All)", "GET", "api/musicjam/jam-sessions?status=All", 200)
+        
+        # Test filtering by genre
+        self.run_test("Filter by Genre (Rock)", "GET", "api/musicjam/jam-sessions?genre=Rock", 200)
+        self.run_test("Filter by Genre (All Genres)", "GET", "api/musicjam/jam-sessions?genre=All%20Genres", 200)
+        
+        # Test sorting
+        self.run_test("Sort by Date", "GET", "api/musicjam/jam-sessions?sort_by=date", 200)
+        self.run_test("Sort by Popularity", "GET", "api/musicjam/jam-sessions?sort_by=popularity", 200)
+        
+        # Create a test jam session
+        tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        test_session = {
+            "title": "Test Blues Jam Session",
+            "description": "A test jam session for backend testing",
+            "location": "Test Studio, Test City",
+            "max_participants": 8,
+            "date": tomorrow,
+            "start_time": "19:00",
+            "end_time": "22:00",
+            "skill_level": "Intermediate",
+            "genres": ["Blues", "Rock"]
+        }
+        
+        success, create_data = self.run_test("Create Jam Session", "POST", "api/musicjam/jam-sessions", 200, test_session)
+        
+        if success and 'id' in create_data:
+            session_id = create_data['id']
+            self.log_test("Jam Session ID returned", True)
+            
+            # Test getting specific jam session
+            self.run_test(f"Get Jam Session by ID", "GET", f"api/musicjam/jam-sessions/{session_id}", 200)
+        else:
+            self.log_test("Jam Session ID returned", False, "No ID in response")
+        
+        # Verify the session was created
+        success, updated_data = self.run_test("Verify Session Created", "GET", "api/musicjam/jam-sessions", 200)
+        if success:
+            updated_sessions = updated_data.get('jam_sessions', [])
+            if len(updated_sessions) > len(initial_sessions):
+                self.log_test("Session Count Increased", True)
+            else:
+                self.log_test("Session Count Increased", False, f"Before: {len(initial_sessions)}, After: {len(updated_sessions)}")
+
+    def test_playlists_crud(self):
+        """Test Tab Playlists CRUD operations"""
+        print("\n🎼 Testing Tab Playlists CRUD...")
+        
+        # Test GET playlists
+        success, data = self.run_test("Get Playlists", "GET", "api/musicjam/playlists", 200)
+        initial_playlists = data.get('playlists', []) if success else []
+        
+        print(f"   Found {len(initial_playlists)} existing playlists")
+        
+        # Create a test playlist
+        test_playlist = {
+            "title": "Test Rock Playlist",
+            "description": "A test playlist for backend testing",
+            "tabs": [
+                {
+                    "title": "Smoke on the Water",
+                    "artist": "Deep Purple",
+                    "tab_url": "https://tabs.ultimate-guitar.com/tab/deep-purple/smoke-on-the-water-tabs-1234",
+                    "youtube_url": "https://youtube.com/watch?v=test123"
+                }
+            ],
+            "genres": ["Rock", "Classic Rock"]
+        }
+        
+        success, create_data = self.run_test("Create Playlist", "POST", "api/musicjam/playlists", 200, test_playlist)
+        
+        if success and 'id' in create_data:
+            self.log_test("Playlist ID returned", True)
+        else:
+            self.log_test("Playlist ID returned", False, "No ID in response")
+
+    def test_ai_enhancements(self):
+        """Test AI Enhancement endpoints"""
+        print("\n🤖 Testing AI Enhancement Endpoints...")
+        
+        # Test getting existing enhancements
+        self.run_test("Get MusicJam Enhancements", "GET", "api/musicjam/enhancements", 200)
+        
+        # Test AI music recommendations
+        self.run_test("AI Music Recommendations", "GET", "api/ai/recommendations/music?mood=happy&genre=rock", 200)
+        
+        # Test AI enhancement generation (if Gemini is configured)
+        enhancement_request = {
+            "musicjam_feature": "social-sharing",
+            "enhancement_type": "social",
             "user_preferences": {
                 "focus": "user_engagement",
                 "platform": "web"
             }
         }
         
-        success, details, data = self.test_api_endpoint('POST', '/api/ai/musicjam/enhance', 
-                                                       expected_status=200, data=enhancement_data)
-        self.log_test("AI MusicJam Enhancement", success, details, data)
+        self.run_test("Generate AI Enhancement", "POST", "api/ai/musicjam/enhance", 200, enhancement_request)
+
+    def test_github_integration(self):
+        """Test GitHub integration endpoints"""
+        print("\n🐙 Testing GitHub Integration...")
         
-        if success and data:
-            # Validate enhancement response
-            required_fields = ['enhancement_id', 'ai_suggestion', 'feature', 'type']
-            missing_fields = [field for field in required_fields if field not in data]
+        # Test getting repositories
+        self.run_test("Get GitHub Repositories", "GET", "api/github/repositories", 200)
+
+    def test_deployment_endpoints(self):
+        """Test deployment-related endpoints"""
+        print("\n🚀 Testing Deployment Endpoints...")
+        
+        # Test deployment status
+        self.run_test("Get Deployment Status", "GET", "api/deploy/status", 200)
+        
+        # Test projects endpoint
+        self.run_test("Get Projects", "GET", "api/projects", 200)
+
+    def test_error_handling(self):
+        """Test error handling for invalid requests"""
+        print("\n⚠️ Testing Error Handling...")
+        
+        # Test invalid jam session ID
+        self.run_test("Invalid Jam Session ID", "GET", "api/musicjam/jam-sessions/invalid-id", 404)
+        
+        # Test invalid endpoint
+        self.run_test("Invalid Endpoint", "GET", "api/invalid/endpoint", 404)
+        
+        # Test invalid POST data
+        invalid_session = {"title": ""}  # Missing required fields
+        self.run_test("Invalid Jam Session Data", "POST", "api/musicjam/jam-sessions", 422, invalid_session)
+
+    def test_existing_test_data(self):
+        """Test for existing test data mentioned in the review"""
+        print("\n📊 Testing for Existing Test Data...")
+        
+        success, data = self.run_test("Check for Test Sessions", "GET", "api/musicjam/jam-sessions", 200)
+        
+        if success and 'jam_sessions' in data:
+            sessions = data['jam_sessions']
             
-            if missing_fields:
-                self.log_test("Enhancement Response Structure", False, f"Missing fields: {missing_fields}")
-            else:
-                self.log_test("Enhancement Response Structure", True, "All required fields present")
-                
-                # Check if AI suggestion is meaningful
-                ai_suggestion = data.get('ai_suggestion', '')
-                self.log_test("AI Suggestion Quality", 
-                            len(ai_suggestion) > 50,
-                            f"AI suggestion length: {len(ai_suggestion)} characters")
-        
-        # Test music recommendations
-        success, details, data = self.test_api_endpoint('GET', '/api/ai/recommendations/music',
-                                                       params={'mood': 'happy', 'genre': 'pop'})
-        self.log_test("AI Music Recommendations", success, details, data)
-        
-        if success and data:
-            recommendations = data.get('recommendations', '')
-            self.log_test("Music Recommendations Quality",
-                        len(recommendations) > 50,
-                        f"Recommendations length: {len(recommendations)} characters")
-
-    def test_project_management(self):
-        """Test project management endpoints"""
-        print("📁 Testing Project Management...")
-        
-        # Test get projects
-        success, details, data = self.test_api_endpoint('GET', '/api/projects')
-        self.log_test("Get Projects", success, details, data)
-        
-        if success:
-            projects = data.get('projects', [])
-            self.log_test("Projects Data Structure", 
-                        isinstance(projects, list),
-                        f"Projects is a list with {len(projects)} items")
-
-    def test_musicjam_enhancements(self):
-        """Test MusicJam enhancements endpoints"""
-        print("🎵 Testing MusicJam Enhancements...")
-        
-        # Test get enhancements
-        success, details, data = self.test_api_endpoint('GET', '/api/musicjam/enhancements')
-        self.log_test("Get MusicJam Enhancements", success, details, data)
-        
-        if success:
-            enhancements = data.get('enhancements', [])
-            self.log_test("Enhancements Data Structure",
-                        isinstance(enhancements, list),
-                        f"Enhancements is a list with {len(enhancements)} items")
-
-    def test_oauth_integration(self):
-        """Test OAuth integration"""
-        print("🔐 Testing OAuth Integration...")
-        
-        success, details, data = self.test_api_endpoint('GET', '/api/oauth/google/url')
-        self.log_test("Google OAuth URL", success, details, data)
-        
-        if success and data:
-            oauth_url = data.get('oauth_url', '')
-            self.log_test("OAuth URL Validity",
-                        'accounts.google.com' in oauth_url,
-                        f"OAuth URL contains Google domain: {bool('accounts.google.com' in oauth_url)}")
-
-    def test_deployment_functionality(self):
-        """Test deployment functionality"""
-        print("🚀 Testing Deployment Functionality...")
-        
-        # Test deployment endpoint with sample data
-        deployment_data = {
-            "project_name": "test-deployment",
-            "repository_url": "https://github.com/test/test-repo",
-            "description": "Test deployment via API testing",
-            "target_platform": "vercel"
-        }
-        
-        success, details, data = self.test_api_endpoint('POST', '/api/github/deploy',
-                                                       expected_status=200, data=deployment_data)
-        self.log_test("Project Deployment", success, details, data)
-        
-        if success and data:
-            project_id = data.get('project_id')
-            self.log_test("Deployment Response Structure",
-                        bool(project_id),
-                        f"Project ID generated: {project_id}")
-
-    def test_deployment_center_apis(self):
-        """Test new Deployment Center APIs"""
-        print("🎯 Testing Deployment Center APIs...")
-        
-        # First, create an enhancement to test with
-        enhancement_data = {
-            "musicjam_feature": "test-feature",
-            "enhancement_type": "ui-improvement",
-            "user_preferences": {"focus": "testing", "platform": "web"}
-        }
-        
-        success, details, data = self.test_api_endpoint('POST', '/api/ai/musicjam/enhance', 
-                                                       expected_status=200, data=enhancement_data)
-        enhancement_id = None
-        if success and data:
-            enhancement_id = data.get('enhancement_id')
-            self.log_test("Test Enhancement Created", True, f"Enhancement ID: {enhancement_id}")
-        else:
-            self.log_test("Test Enhancement Creation", False, "Failed to create test enhancement")
-        
-        # Test deployment status endpoint
-        success, details, data = self.test_api_endpoint('GET', '/api/deploy/status')
-        self.log_test("Deployment Status Endpoint", success, details, data)
-        
-        if success:
-            deployments = data.get('deployments', [])
-            self.log_test("Deployment Status Structure",
-                        isinstance(deployments, list),
-                        f"Deployments is a list with {len(deployments)} items")
-        
-        # Test simulate deployment (if we have an enhancement)
-        if enhancement_id:
-            success, details, data = self.test_api_endpoint('POST', '/api/musicjam/simulate-deploy',
-                                                           params={'enhancement_id': enhancement_id})
-            self.log_test("Simulate Deployment", success, details, data)
+            # Look for Blues Jam and Jazz Fusion Workshop
+            blues_found = any("blues" in session.get('title', '').lower() for session in sessions)
+            jazz_found = any("jazz" in session.get('title', '').lower() for session in sessions)
             
-            if success and data:
-                required_fields = ['status', 'enhancement_id', 'feature', 'simulation_result']
-                missing_fields = [field for field in required_fields if field not in data]
-                
-                if missing_fields:
-                    self.log_test("Simulate Deployment Structure", False, f"Missing fields: {missing_fields}")
-                else:
-                    self.log_test("Simulate Deployment Structure", True, "All required fields present")
-        
-        # Test deployment plan creation (if we have an enhancement)
-        if enhancement_id:
-            plan_data = {
-                "enhancement_id": enhancement_id,
-                "deployment_target": "staging"
-            }
+            self.log_test("Blues Jam Session exists", blues_found)
+            self.log_test("Jazz Fusion Workshop exists", jazz_found)
             
-            success, details, data = self.test_api_endpoint('POST', '/api/deploy/enhancement',
-                                                           expected_status=200, data=plan_data)
-            self.log_test("Create Deployment Plan", success, details, data)
-            
-            if success and data:
-                deployment_plan = data.get('deployment_plan', {})
-                required_fields = ['plan', 'estimated_duration', 'complexity', 'risk_level']
-                missing_fields = [field for field in required_fields if field not in deployment_plan]
-                
-                if missing_fields:
-                    self.log_test("Deployment Plan Structure", False, f"Missing fields: {missing_fields}")
-                else:
-                    self.log_test("Deployment Plan Structure", True, "All required fields present")
-                    
-                    # Check plan quality
-                    plan_text = deployment_plan.get('plan', '')
-                    self.log_test("Deployment Plan Quality",
-                                len(plan_text) > 100,
-                                f"Plan length: {len(plan_text)} characters")
-        
-        # Test component generation
-        component_data = {
-            "component_name": "TestComponent",
-            "feature_type": "ui-improvement",
-            "description": "Test component for API testing"
-        }
-        
-        success, details, data = self.test_api_endpoint('POST', '/api/generate/component',
-                                                       expected_status=200, data=component_data)
-        self.log_test("Generate React Component", success, details, data)
-        
-        if success and data:
-            required_fields = ['component_code', 'component_name', 'generated_at']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                self.log_test("Component Generation Structure", False, f"Missing fields: {missing_fields}")
-            else:
-                self.log_test("Component Generation Structure", True, "All required fields present")
-                
-                # Check component code quality
-                component_code = data.get('component_code', '')
-                self.log_test("Component Code Quality",
-                            'React' in component_code and len(component_code) > 200,
-                            f"Component code length: {len(component_code)} characters, contains React: {'React' in component_code}")
+            print(f"   Found sessions: {[s.get('title', 'Untitled') for s in sessions]}")
 
-    def run_comprehensive_tests(self):
-        """Run all tests in sequence"""
-        print("🚀 Starting YazWho Empire Dashboard API Testing Suite")
-        print(f"🌐 Testing against: {self.base_url}")
-        print("=" * 80)
+    def run_all_tests(self):
+        """Run all test suites"""
+        print("🚀 Starting YazWho Empire Dashboard Backend Tests")
+        print(f"🎯 Target URL: {self.base_url}")
+        print("=" * 60)
         
-        # Run all test suites
+        # Run test suites
         self.test_basic_endpoints()
-        self.test_empire_overview()
+        self.test_musicjam_genres()
+        self.test_jam_sessions_crud()
+        self.test_playlists_crud()
+        self.test_ai_enhancements()
         self.test_github_integration()
-        self.test_ai_integrations()
-        self.test_project_management()
-        self.test_musicjam_enhancements()
-        self.test_oauth_integration()
-        self.test_deployment_functionality()
-        self.test_deployment_center_apis()  # New Deployment Center tests
+        self.test_deployment_endpoints()
+        self.test_error_handling()
+        self.test_existing_test_data()
         
         # Print summary
-        self.print_summary()
+        print("\n" + "=" * 60)
+        print("📊 TEST SUMMARY")
+        print("=" * 60)
+        print(f"✅ Tests Passed: {self.tests_passed}")
+        print(f"❌ Tests Failed: {self.tests_run - self.tests_passed}")
+        print(f"📈 Success Rate: {(self.tests_passed/self.tests_run)*100:.1f}%")
+        
+        # Print failed tests
+        failed_tests = [t for t in self.test_results if not t['success']]
+        if failed_tests:
+            print(f"\n❌ FAILED TESTS ({len(failed_tests)}):")
+            for test in failed_tests:
+                print(f"   • {test['name']}: {test['details']}")
+        
+        print("\n🎵 MusicJam Transformation Test Complete!")
         
         return self.tests_passed == self.tests_run
 
-    def print_summary(self):
-        """Print test summary"""
-        print("=" * 80)
-        print("📊 TEST SUMMARY")
-        print("=" * 80)
-        print(f"Total Tests: {self.tests_run}")
-        print(f"Passed: {self.tests_passed}")
-        print(f"Failed: {self.tests_run - self.tests_passed}")
-        print(f"Success Rate: {(self.tests_passed/self.tests_run*100):.1f}%" if self.tests_run > 0 else "0%")
-        
-        # Print failed tests
-        failed_tests = [result for result in self.test_results if not result['success']]
-        if failed_tests:
-            print("\n❌ FAILED TESTS:")
-            for test in failed_tests:
-                print(f"  • {test['test']}: {test['details']}")
-        
-        # Print key findings
-        print("\n🔍 KEY FINDINGS:")
-        
-        # Check integration status
-        empire_tests = [r for r in self.test_results if 'Empire Overview' in r['test'] and r['success']]
-        if empire_tests:
-            print("  • Empire Dashboard is operational")
-        
-        github_tests = [r for r in self.test_results if 'GitHub' in r['test'] and r['success']]
-        if github_tests:
-            print("  • GitHub integration is working")
-        
-        ai_tests = [r for r in self.test_results if 'AI' in r['test'] and r['success']]
-        if ai_tests:
-            print("  • AI integrations are functional")
-        
-        print("\n🎯 RECOMMENDATIONS:")
-        if self.tests_passed == self.tests_run:
-            print("  • All systems operational - ready for frontend testing")
-        else:
-            print("  • Some backend issues detected - review failed tests before frontend testing")
-
 def main():
     """Main test execution"""
-    tester = YazWhoEmpireAPITester()
+    tester = MusicJamAPITester()
     
     try:
-        success = tester.run_comprehensive_tests()
+        success = tester.run_all_tests()
         return 0 if success else 1
     except KeyboardInterrupt:
-        print("\n⚠️ Testing interrupted by user")
+        print("\n⚠️ Tests interrupted by user")
         return 1
     except Exception as e:
-        print(f"\n💥 Testing failed with error: {str(e)}")
+        print(f"\n💥 Test execution failed: {str(e)}")
         return 1
 
 if __name__ == "__main__":
