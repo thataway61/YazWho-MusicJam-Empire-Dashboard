@@ -283,7 +283,7 @@ async def get_music_recommendations(mood: str = "happy", genre: str = "any"):
         Format as JSON array.
         """
         
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
         
         return {
