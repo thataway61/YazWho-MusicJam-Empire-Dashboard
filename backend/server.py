@@ -17,7 +17,7 @@ import asyncio
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="YazWho Empire Dashboard", version="2.0")
+app = FastAPI(title="YazWho Empire Dashboard", version="2.0.0")
 
 # CORS middleware
 app.add_middleware(
