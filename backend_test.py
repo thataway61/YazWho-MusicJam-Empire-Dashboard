@@ -354,6 +354,7 @@ class YazWhoEmpireAPITester:
         self.test_musicjam_enhancements()
         self.test_oauth_integration()
         self.test_deployment_functionality()
+        self.test_deployment_center_apis()  # New Deployment Center tests
         
         # Print summary
         self.print_summary()
