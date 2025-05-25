@@ -593,4 +593,251 @@ function AITools() {
   );
 }
 
+// Deployment Center Component
+function DeploymentCenter({ enhancements, fetchEnhancements }) {
+  const [deployments, setDeployments] = useState([]);
+  const [selectedEnhancement, setSelectedEnhancement] = useState(null);
+  const [deploymentPlan, setDeploymentPlan] = useState(null);
+  const [generatedComponent, setGeneratedComponent] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchEnhancements();
+    fetchDeployments();
+  }, []);
+
+  const fetchDeployments = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/deploy/status`);
+      const data = await response.json();
+      setDeployments(data.deployments || []);
+    } catch (error) {
+      console.error('Failed to fetch deployments:', error);
+    }
+  };
+
+  const simulateDeployment = async (enhancementId) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/musicjam/simulate-deploy?enhancement_id=${enhancementId}`, {
+        method: 'POST'
+      });
+      const result = await response.json();
+      alert(`🚀 Deployment Simulation Complete!\n\nFeature: ${result.feature}\nStatus: ${result.simulation_result}\nNext Steps: ${result.next_steps}`);
+      fetchEnhancements();
+    } catch (error) {
+      console.error('Simulation failed:', error);
+      alert('Deployment simulation failed!');
+    }
+    setLoading(false);
+  };
+
+  const createDeploymentPlan = async (enhancementId) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/deploy/enhancement/${enhancementId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deployment_target: 'staging' })
+      });
+      const result = await response.json();
+      setDeploymentPlan(result.deployment_plan);
+      alert('🎯 Deployment plan created successfully!');
+      fetchDeployments();
+    } catch (error) {
+      console.error('Deployment plan creation failed:', error);
+      alert('Failed to create deployment plan!');
+    }
+    setLoading(false);
+  };
+
+  const generateComponent = async (enhancement) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/generate/component`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          component_name: `${enhancement.feature_name.replace('-', '')}Component`,
+          feature_type: enhancement.enhancement_type,
+          description: enhancement.ai_suggestion.substring(0, 500)
+        })
+      });
+      const result = await response.json();
+      setGeneratedComponent(result);
+      alert('⚡ React component generated successfully!');
+    } catch (error) {
+      console.error('Component generation failed:', error);
+      alert('Failed to generate component!');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-white mb-2">🚀 Deployment Center</h2>
+        <p className="text-purple-300">Deploy AI enhancements to live MusicJam application</p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-4 border border-green-500 text-center">
+          <div className="text-2xl mb-2">🎯</div>
+          <div className="text-green-400 font-semibold">Ready to Deploy</div>
+          <div className="text-white text-2xl font-bold">{enhancements.filter(e => e.implementation_status === 'planned').length}</div>
+        </div>
+        
+        <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-4 border border-yellow-500 text-center">
+          <div className="text-2xl mb-2">⚡</div>
+          <div className="text-yellow-400 font-semibold">Implementing</div>
+          <div className="text-white text-2xl font-bold">{enhancements.filter(e => e.implementation_status === 'implementing').length}</div>
+        </div>
+        
+        <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-4 border border-blue-500 text-center">
+          <div className="text-2xl mb-2">✅</div>
+          <div className="text-blue-400 font-semibold">Deployed</div>
+          <div className="text-white text-2xl font-bold">{enhancements.filter(e => e.implementation_status === 'deployed').length}</div>
+        </div>
+        
+        <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-4 border border-purple-500 text-center">
+          <div className="text-2xl mb-2">📊</div>
+          <div className="text-purple-400 font-semibold">Total Plans</div>
+          <div className="text-white text-2xl font-bold">{deployments.length}</div>
+        </div>
+      </div>
+
+      {/* Enhancement Deployment Manager */}
+      <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500">
+        <h3 className="text-xl font-semibold text-white mb-4">🎵 MusicJam Enhancement Deployment</h3>
+        
+        {enhancements.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-purple-300">No enhancements available for deployment.</p>
+            <p className="text-purple-400">Generate some AI enhancements in the MusicJam section first!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {enhancements.map((enhancement) => (
+              <div key={enhancement.id} className="bg-purple-900 bg-opacity-30 rounded-lg p-4 border border-purple-400">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h4 className="text-lg font-semibold text-white">{enhancement.feature_name.replace('-', ' ').toUpperCase()}</h4>
+                    <span className="text-purple-400 text-sm">{enhancement.enhancement_type.replace('-', ' ').toUpperCase()}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      enhancement.implementation_status === 'deployed' ? 'bg-green-600 text-white' :
+                      enhancement.implementation_status === 'implementing' ? 'bg-yellow-600 text-white' :
+                      'bg-blue-600 text-white'
+                    }`}>
+                      {enhancement.implementation_status}
+                    </span>
+                    {enhancement.deployment_simulation && (
+                      <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded">SIMULATED</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
+                  <button
+                    onClick={() => simulateDeployment(enhancement.id)}
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2 px-3 rounded text-sm transition-colors"
+                  >
+                    🧪 Simulate Deploy
+                  </button>
+                  
+                  <button
+                    onClick={() => createDeploymentPlan(enhancement.id)}
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 px-3 rounded text-sm transition-colors"
+                  >
+                    📋 Create Plan
+                  </button>
+                  
+                  <button
+                    onClick={() => generateComponent(enhancement)}
+                    disabled={loading}
+                    className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-semibold py-2 px-3 rounded text-sm transition-colors"
+                  >
+                    ⚡ Generate Code
+                  </button>
+                  
+                  <button
+                    onClick={() => setSelectedEnhancement(enhancement)}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-3 rounded text-sm transition-colors"
+                  >
+                    👁️ View Details
+                  </button>
+                </div>
+                
+                {enhancement.deployment_simulation && (
+                  <div className="bg-green-900 bg-opacity-30 rounded p-3 text-sm">
+                    <div className="text-green-400 font-medium">✅ Deployment Simulation Results:</div>
+                    <div className="text-green-200">Status: {enhancement.deployment_simulation.status}</div>
+                    <div className="text-green-200">Impact: {enhancement.deployment_simulation.estimated_impact}</div>
+                    <div className="text-green-200">Target: {enhancement.deployment_simulation.target_url}</div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Deployment Plan Viewer */}
+      {deploymentPlan && (
+        <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-blue-500">
+          <h3 className="text-xl font-semibold text-white mb-4">📋 Deployment Plan</h3>
+          <div className="bg-blue-900 bg-opacity-30 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <div className="text-blue-400 text-sm">Duration</div>
+                <div className="text-white font-semibold">{deploymentPlan.estimated_duration}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-blue-400 text-sm">Complexity</div>
+                <div className="text-white font-semibold">{deploymentPlan.complexity}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-blue-400 text-sm">Risk Level</div>
+                <div className="text-white font-semibold">{deploymentPlan.risk_level}</div>
+              </div>
+            </div>
+            <div className="text-blue-200 text-sm whitespace-pre-wrap">{deploymentPlan.plan}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Generated Component Viewer */}
+      {generatedComponent && (
+        <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500">
+          <h3 className="text-xl font-semibold text-white mb-4">⚡ Generated React Component</h3>
+          <div className="bg-purple-900 bg-opacity-30 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-purple-400 font-medium">Component: {generatedComponent.component_name}</span>
+              <span className="text-purple-300 text-sm">Generated: {new Date(generatedComponent.generated_at).toLocaleString()}</span>
+            </div>
+            <pre className="text-purple-200 text-sm whitespace-pre-wrap overflow-x-auto">{generatedComponent.component_code}</pre>
+          </div>
+        </div>
+      )}
+
+      {/* Enhancement Details Modal */}
+      {selectedEnhancement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedEnhancement(null)}>
+          <div className="bg-black bg-opacity-90 backdrop-blur-lg rounded-lg p-6 border border-purple-500 max-w-4xl max-h-96 overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold text-white">{selectedEnhancement.feature_name.replace('-', ' ').toUpperCase()}</h3>
+              <button onClick={() => setSelectedEnhancement(null)} className="text-purple-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <div className="text-purple-200 text-sm whitespace-pre-wrap">{selectedEnhancement.ai_suggestion}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default App;
