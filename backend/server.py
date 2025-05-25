@@ -300,7 +300,7 @@ async def get_music_recommendations(mood: str = "happy", genre: str = "any"):
 async def get_projects():
     """Get all managed projects"""
     try:
-        projects = await db.projects.find({}).to_list(100)
+        projects = await db.projects.find({}, {"_id": 0}).to_list(100)
         return {"projects": projects}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch projects: {str(e)}")
@@ -309,7 +309,7 @@ async def get_projects():
 async def get_project(project_id: str):
     """Get specific project details"""
     try:
-        project = await db.projects.find_one({"id": project_id})
+        project = await db.projects.find_one({"id": project_id}, {"_id": 0})
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         return project
@@ -320,7 +320,7 @@ async def get_project(project_id: str):
 async def get_musicjam_enhancements():
     """Get all MusicJam AI enhancements"""
     try:
-        enhancements = await db.musicjam_enhancements.find({}).to_list(100)
+        enhancements = await db.musicjam_enhancements.find({}, {"_id": 0}).to_list(100)
         return {"enhancements": enhancements}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch enhancements: {str(e)}")
