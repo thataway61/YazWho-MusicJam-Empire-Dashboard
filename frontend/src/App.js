@@ -307,122 +307,454 @@ function Projects({ projects, fetchProjects }) {
   );
 }
 
-// MusicJam Component
+// MusicJam Component - Full Music Application
 function MusicJam({ enhancements, generateAIEnhancement, fetchEnhancements }) {
-  const [selectedFeature, setSelectedFeature] = useState('playlist-management');
-  const [selectedType, setSelectedType] = useState('recommendation');
+  const [currentView, setCurrentView] = useState('jam-sessions');
+  const [jamSessions, setJamSessions] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
+  const [genres, setGenres] = useState([]);
+  const [filters, setFilters] = useState({
+    status: 'All',
+    genre: 'All Genres',
+    sortBy: 'Date (Soonest)'
+  });
+  const [loading, setLoading] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    max_participants: '',
+    date: '',
+    start_time: '',
+    end_time: '',
+    skill_level: 'All Levels',
+    genres: []
+  });
 
   useEffect(() => {
-    fetchEnhancements();
+    fetchJamSessions();
+    fetchPlaylists();
+    fetchGenres();
   }, []);
 
-  const features = [
-    'playlist-management',
-    'music-discovery',
-    'social-sharing',
-    'user-profiles',
-    'recommendation-engine',
-    'audio-player'
-  ];
+  useEffect(() => {
+    fetchJamSessions();
+  }, [filters]);
 
-  const enhancementTypes = [
-    'recommendation',
-    'ui-improvement',
-    'performance',
-    'social',
-    'analytics',
-    'accessibility'
-  ];
+  const fetchJamSessions = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.status !== 'All') params.append('status', filters.status);
+      if (filters.genre !== 'All Genres') params.append('genre', filters.genre);
+      params.append('sort_by', filters.sortBy.includes('Date') ? 'date' : 'popularity');
 
-  return (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-white mb-2">🎵 MusicJam Enhancement Studio</h2>
-        <p className="text-purple-300">AI-powered suggestions for your music platform</p>
-      </div>
+      const response = await fetch(`${BACKEND_URL}/api/musicjam/jam-sessions?${params}`);
+      const data = await response.json();
+      setJamSessions(data.jam_sessions || []);
+    } catch (error) {
+      console.error('Failed to fetch jam sessions:', error);
+    }
+    setLoading(false);
+  };
 
-      {/* AI Enhancement Generator */}
-      <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500">
-        <h3 className="text-xl font-semibold text-white mb-4">Generate AI Enhancement</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-purple-300 text-sm font-medium mb-2">Feature</label>
-            <select
-              value={selectedFeature}
-              onChange={(e) => setSelectedFeature(e.target.value)}
-              className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-            >
-              {features.map(feature => (
-                <option key={feature} value={feature}>{feature.replace('-', ' ').toUpperCase()}</option>
-              ))}
-            </select>
+  const fetchPlaylists = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/musicjam/playlists`);
+      const data = await response.json();
+      setPlaylists(data.playlists || []);
+    } catch (error) {
+      console.error('Failed to fetch playlists:', error);
+    }
+  };
+
+  const fetchGenres = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/musicjam/genres`);
+      const data = await response.json();
+      setGenres(data.genres || []);
+    } catch (error) {
+      console.error('Failed to fetch genres:', error);
+    }
+  };
+
+  const handleCreateJamSession = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/musicjam/jam-sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (response.ok) {
+        alert('🎸 Jam session created successfully!');
+        setShowCreateForm(false);
+        setFormData({
+          title: '', description: '', location: '', max_participants: '',
+          date: '', start_time: '', end_time: '', skill_level: 'All Levels', genres: []
+        });
+        fetchJamSessions();
+      }
+    } catch (error) {
+      console.error('Failed to create jam session:', error);
+      alert('Failed to create jam session!');
+    }
+    setLoading(false);
+  };
+
+  const handleGenreToggle = (genre) => {
+    setFormData(prev => ({
+      ...prev,
+      genres: prev.genres.includes(genre)
+        ? prev.genres.filter(g => g !== genre)
+        : [...prev.genres, genre]
+    }));
+  };
+
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  if (showCreateForm) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold text-white">🎸 Create Jam Session</h2>
+          <button
+            onClick={() => setShowCreateForm(false)}
+            className="text-purple-300 hover:text-white"
+          >
+            Cancel
+          </button>
+        </div>
+
+        <form onSubmit={handleCreateJamSession} className="space-y-6">
+          <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500">
+            <h3 className="text-xl font-semibold text-white mb-4">Basic Information</h3>
+            <p className="text-purple-300 mb-6">Provide details about your jam session to help others find it.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-purple-300 text-sm font-medium mb-2">Title</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  required
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-purple-300 text-sm font-medium mb-2">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400 h-24"
+                  placeholder="Describe what you'll be playing, what to bring, etc."
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Location</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Max Participants</label>
+                <input
+                  type="number"
+                  value={formData.max_participants}
+                  onChange={(e) => setFormData(prev => ({ ...prev, max_participants: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  placeholder="Leave blank for unlimited"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Date</label>
+                <input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Start Time</label>
+                <input
+                  type="time"
+                  value={formData.start_time}
+                  onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">End Time (optional)</label>
+                <input
+                  type="time"
+                  value={formData.end_time}
+                  onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Skill Level</label>
+                <select
+                  value={formData.skill_level}
+                  onChange={(e) => setFormData(prev => ({ ...prev, skill_level: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                >
+                  <option value="All Levels">All Levels</option>
+                  <option value="Beginner">Beginner</option>
+                  <option value="Intermediate">Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
           </div>
-          
-          <div>
-            <label className="block text-purple-300 text-sm font-medium mb-2">Enhancement Type</label>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-            >
-              {enhancementTypes.map(type => (
-                <option key={type} value={type}>{type.replace('-', ' ').toUpperCase()}</option>
+
+          <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500">
+            <h3 className="text-xl font-semibold text-white mb-4">Genres</h3>
+            <p className="text-purple-300 mb-6">Select the musical genres that will be played</p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {genres.map(genre => (
+                <label key={genre} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.genres.includes(genre)}
+                    onChange={() => handleGenreToggle(genre)}
+                    className="w-4 h-4 text-purple-600 bg-purple-900 border-purple-500 rounded focus:ring-purple-400"
+                  />
+                  <span className="text-purple-300 text-sm">{genre}</span>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
-          
-          <div className="flex items-end">
+
+          <div className="flex justify-end space-x-4">
             <button
-              onClick={() => generateAIEnhancement(selectedFeature, selectedType)}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-md transition-all duration-200"
+              type="button"
+              onClick={() => setShowCreateForm(false)}
+              className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
             >
-              🤖 Generate Enhancement
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+            >
+              {loading ? 'Creating...' : 'Create Jam Session'}
             </button>
           </div>
-        </div>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-white mb-2">🎵 Find Musicians & Jam Together</h2>
+        <p className="text-purple-300">Connect with local musicians, share Ultimate Guitar tab playlists, and organize jam sessions easily.</p>
       </div>
 
-      {/* Enhancements List */}
-      <div>
-        <h3 className="text-2xl font-bold text-white mb-4">Generated Enhancements</h3>
-        {enhancements.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-purple-300">No enhancements generated yet.</p>
-            <p className="text-purple-400">Use the form above to generate AI-powered suggestions!</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {enhancements.map((enhancement) => (
-              <div key={enhancement.id} className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h4 className="text-lg font-semibold text-white">{enhancement.feature_name.replace('-', ' ').toUpperCase()}</h4>
-                    <span className="text-purple-400 text-sm">{enhancement.enhancement_type.replace('-', ' ').toUpperCase()}</span>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    enhancement.implementation_status === 'deployed' ? 'bg-green-600 text-white' :
-                    enhancement.implementation_status === 'implementing' ? 'bg-yellow-600 text-white' :
-                    'bg-blue-600 text-white'
-                  }`}>
-                    {enhancement.implementation_status}
-                  </span>
-                </div>
-                
-                {enhancement.ai_suggestion && (
-                  <div className="bg-purple-900 bg-opacity-30 rounded-lg p-4 mb-4">
-                    <h5 className="text-white font-medium mb-2">🤖 AI Suggestion:</h5>
-                    <p className="text-purple-200 text-sm whitespace-pre-wrap">{enhancement.ai_suggestion}</p>
-                  </div>
-                )}
-                
-                <div className="text-xs text-purple-400">
-                  Generated: {new Date(enhancement.created_at).toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Sub Navigation */}
+      <div className="flex justify-center space-x-8 mb-8">
+        {['jam-sessions', 'playlists'].map((view) => (
+          <button
+            key={view}
+            onClick={() => setCurrentView(view)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              currentView === view
+                ? 'bg-purple-600 text-white'
+                : 'text-purple-300 hover:text-white hover:bg-purple-700'
+            }`}
+          >
+            {view === 'jam-sessions' ? 'Jam Sessions' : 'Tab Playlists'}
+          </button>
+        ))}
       </div>
+
+      {currentView === 'jam-sessions' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-2xl font-bold text-white">Jam Sessions</h3>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+            >
+              Create Jam Session
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-4 border border-purple-500">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                >
+                  <option value="All">All</option>
+                  <option value="Upcoming">Upcoming</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Genre</label>
+                <select
+                  value={filters.genre}
+                  onChange={(e) => setFilters(prev => ({ ...prev, genre: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                >
+                  <option value="All Genres">All Genres</option>
+                  {genres.map(genre => (
+                    <option key={genre} value={genre}>{genre}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-purple-300 text-sm font-medium mb-2">Sort By</label>
+                <select
+                  value={filters.sortBy}
+                  onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
+                  className="w-full px-3 py-2 bg-purple-900 bg-opacity-50 border border-purple-500 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                >
+                  <option value="Date (Soonest)">Date (Soonest)</option>
+                  <option value="Popularity">Popularity</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Jam Sessions List */}
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+              <p className="text-purple-300">Loading jam sessions...</p>
+            </div>
+          ) : jamSessions.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-purple-300 text-lg">No jam sessions found.</p>
+              <p className="text-purple-400">Be the first to create one!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {jamSessions.map((session) => (
+                <div key={session.id} className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500 hover:border-purple-400 transition-colors">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4 mb-2">
+                        <span className="text-purple-400 text-sm font-medium">
+                          {formatDate(session.date + 'T' + session.start_time)}
+                        </span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          session.status === 'upcoming' ? 'bg-blue-600 text-white' :
+                          session.status === 'ongoing' ? 'bg-green-600 text-white' :
+                          'bg-gray-600 text-white'
+                        }`}>
+                          {session.status.toUpperCase()}
+                        </span>
+                      </div>
+                      
+                      <h4 className="text-xl font-semibold text-white mb-2">{session.title}</h4>
+                      <p className="text-purple-300 mb-3">{session.description}</p>
+                      
+                      <div className="flex flex-wrap items-center gap-4 text-sm">
+                        <span className="text-purple-400">
+                          <strong>Skill:</strong> {session.skill_level}
+                        </span>
+                        <span className="text-purple-400">
+                          <strong>Location:</strong> {session.location}
+                        </span>
+                        {session.max_participants && (
+                          <span className="text-purple-400">
+                            <strong>Max:</strong> {session.max_participants} people
+                          </span>
+                        )}
+                      </div>
+                      
+                      {session.genres && session.genres.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {session.genres.map(genre => (
+                            <span key={genre} className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full">
+                              {genre}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors ml-4">
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentView === 'playlists' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-2xl font-bold text-white">Tab Playlists</h3>
+            <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+              Create Playlist
+            </button>
+          </div>
+
+          {playlists.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-purple-300 text-lg">No tab playlists created yet.</p>
+              <p className="text-purple-400">Create your first playlist to share Ultimate Guitar tabs!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {playlists.map((playlist) => (
+                <div key={playlist.id} className="bg-black bg-opacity-30 backdrop-blur-lg rounded-lg p-6 border border-purple-500">
+                  <h4 className="text-xl font-semibold text-white mb-2">{playlist.title}</h4>
+                  <p className="text-purple-300 mb-4">{playlist.description}</p>
+                  <div className="text-purple-400 text-sm">
+                    {playlist.tabs?.length || 0} tabs • Created {new Date(playlist.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
