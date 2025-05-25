@@ -241,6 +241,104 @@ class YazWhoEmpireAPITester:
                         bool(project_id),
                         f"Project ID generated: {project_id}")
 
+    def test_deployment_center_apis(self):
+        """Test new Deployment Center APIs"""
+        print("🎯 Testing Deployment Center APIs...")
+        
+        # First, create an enhancement to test with
+        enhancement_data = {
+            "musicjam_feature": "test-feature",
+            "enhancement_type": "ui-improvement",
+            "user_preferences": {"focus": "testing", "platform": "web"}
+        }
+        
+        success, details, data = self.test_api_endpoint('POST', '/api/ai/musicjam/enhance', 
+                                                       expected_status=200, data=enhancement_data)
+        enhancement_id = None
+        if success and data:
+            enhancement_id = data.get('enhancement_id')
+            self.log_test("Test Enhancement Created", True, f"Enhancement ID: {enhancement_id}")
+        else:
+            self.log_test("Test Enhancement Creation", False, "Failed to create test enhancement")
+        
+        # Test deployment status endpoint
+        success, details, data = self.test_api_endpoint('GET', '/api/deploy/status')
+        self.log_test("Deployment Status Endpoint", success, details, data)
+        
+        if success:
+            deployments = data.get('deployments', [])
+            self.log_test("Deployment Status Structure",
+                        isinstance(deployments, list),
+                        f"Deployments is a list with {len(deployments)} items")
+        
+        # Test simulate deployment (if we have an enhancement)
+        if enhancement_id:
+            success, details, data = self.test_api_endpoint('POST', '/api/musicjam/simulate-deploy',
+                                                           params={'enhancement_id': enhancement_id})
+            self.log_test("Simulate Deployment", success, details, data)
+            
+            if success and data:
+                required_fields = ['status', 'enhancement_id', 'feature', 'simulation_result']
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if missing_fields:
+                    self.log_test("Simulate Deployment Structure", False, f"Missing fields: {missing_fields}")
+                else:
+                    self.log_test("Simulate Deployment Structure", True, "All required fields present")
+        
+        # Test deployment plan creation (if we have an enhancement)
+        if enhancement_id:
+            plan_data = {
+                "enhancement_id": enhancement_id,
+                "deployment_target": "staging"
+            }
+            
+            success, details, data = self.test_api_endpoint('POST', '/api/deploy/enhancement',
+                                                           expected_status=200, data=plan_data)
+            self.log_test("Create Deployment Plan", success, details, data)
+            
+            if success and data:
+                deployment_plan = data.get('deployment_plan', {})
+                required_fields = ['plan', 'estimated_duration', 'complexity', 'risk_level']
+                missing_fields = [field for field in required_fields if field not in deployment_plan]
+                
+                if missing_fields:
+                    self.log_test("Deployment Plan Structure", False, f"Missing fields: {missing_fields}")
+                else:
+                    self.log_test("Deployment Plan Structure", True, "All required fields present")
+                    
+                    # Check plan quality
+                    plan_text = deployment_plan.get('plan', '')
+                    self.log_test("Deployment Plan Quality",
+                                len(plan_text) > 100,
+                                f"Plan length: {len(plan_text)} characters")
+        
+        # Test component generation
+        component_data = {
+            "component_name": "TestComponent",
+            "feature_type": "ui-improvement",
+            "description": "Test component for API testing"
+        }
+        
+        success, details, data = self.test_api_endpoint('POST', '/api/generate/component',
+                                                       expected_status=200, data=component_data)
+        self.log_test("Generate React Component", success, details, data)
+        
+        if success and data:
+            required_fields = ['component_code', 'component_name', 'generated_at']
+            missing_fields = [field for field in required_fields if field not in data]
+            
+            if missing_fields:
+                self.log_test("Component Generation Structure", False, f"Missing fields: {missing_fields}")
+            else:
+                self.log_test("Component Generation Structure", True, "All required fields present")
+                
+                # Check component code quality
+                component_code = data.get('component_code', '')
+                self.log_test("Component Code Quality",
+                            'React' in component_code and len(component_code) > 200,
+                            f"Component code length: {len(component_code)} characters, contains React: {'React' in component_code}")
+
     def run_comprehensive_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting YazWho Empire Dashboard API Testing Suite")
