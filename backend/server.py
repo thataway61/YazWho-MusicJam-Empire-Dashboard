@@ -325,7 +325,157 @@ async def get_musicjam_enhancements():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch enhancements: {str(e)}")
 
-# OAuth Integration Routes
+# Deployment Routes
+@app.post("/api/deploy/enhancement/{enhancement_id}")
+async def deploy_enhancement(enhancement_id: str, deployment_target: str = "staging"):
+    """Deploy a specific AI enhancement to MusicJam"""
+    try:
+        # Get enhancement from database
+        enhancement = await db.musicjam_enhancements.find_one({"id": enhancement_id}, {"_id": 0})
+        if not enhancement:
+            raise HTTPException(status_code=404, detail="Enhancement not found")
+        
+        # Create deployment plan
+        deployment_plan = await create_deployment_plan(enhancement)
+        
+        # Create deployment record
+        deployment = {
+            "id": str(uuid.uuid4()),
+            "enhancement_id": enhancement_id,
+            "target": deployment_target,
+            "status": "deploying",
+            "deployment_plan": deployment_plan,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        await db.deployments.insert_one(deployment)
+        
+        return {
+            "deployment_id": deployment["id"],
+            "status": "initiated",
+            "deployment_plan": deployment_plan,
+            "target": deployment_target
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Deployment failed: {str(e)}")
+
+async def create_deployment_plan(enhancement):
+    """Create a detailed deployment plan using AI"""
+    if not GEMINI_API_KEY:
+        return {"plan": "AI deployment planning not available - Gemini API not configured"}
+    
+    try:
+        prompt = f"""
+        Create a detailed deployment plan for this MusicJam enhancement:
+        
+        Feature: {enhancement['feature_name']}
+        Type: {enhancement['enhancement_type']}
+        AI Suggestion: {enhancement['ai_suggestion'][:1000]}...
+        
+        Generate a step-by-step deployment plan including:
+        1. Prerequisites and dependencies
+        2. Database schema changes (if needed)
+        3. API endpoint modifications
+        4. Frontend component updates
+        5. Testing strategy
+        6. Rollback plan
+        7. Performance considerations
+        8. User communication plan
+        
+        Make it actionable and specific for a React/FastAPI/MongoDB stack.
+        """
+        
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        
+        return {
+            "plan": response.text,
+            "estimated_duration": "2-4 hours",
+            "complexity": "medium",
+            "risk_level": "low"
+        }
+    except Exception as e:
+        return {"plan": f"AI deployment planning failed: {str(e)}"}
+
+@app.get("/api/deploy/status")
+async def get_deployment_status():
+    """Get status of all deployments"""
+    try:
+        deployments = await db.deployments.find({}, {"_id": 0}).to_list(100)
+        return {"deployments": deployments}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch deployments: {str(e)}")
+
+@app.post("/api/generate/component")
+async def generate_react_component(component_request: dict):
+    """Generate React component code for MusicJam enhancement"""
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=400, detail="Gemini AI not configured")
+    
+    try:
+        prompt = f"""
+        Generate a complete React component for MusicJam with the following requirements:
+        
+        Component Name: {component_request.get('component_name', 'EnhancedFeature')}
+        Feature Type: {component_request.get('feature_type', 'general')}
+        Description: {component_request.get('description', 'No description provided')}
+        
+        Requirements:
+        - Use modern React hooks (useState, useEffect)
+        - Include proper styling with Tailwind CSS
+        - Add proper error handling
+        - Include loading states
+        - Make it responsive for mobile and desktop
+        - Add proper accessibility attributes
+        - Include TypeScript if possible
+        - Follow MusicJam design patterns (dark theme, music-focused UI)
+        
+        Generate complete, production-ready component code.
+        """
+        
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        
+        return {
+            "component_code": response.text,
+            "component_name": component_request.get('component_name', 'EnhancedFeature'),
+            "generated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Component generation failed: {str(e)}")
+
+@app.post("/api/musicjam/simulate-deploy")
+async def simulate_musicjam_deployment(enhancement_id: str):
+    """Simulate deployment to MusicJam for testing"""
+    try:
+        enhancement = await db.musicjam_enhancements.find_one({"id": enhancement_id}, {"_id": 0})
+        if not enhancement:
+            raise HTTPException(status_code=404, detail="Enhancement not found")
+        
+        # Update enhancement status
+        await db.musicjam_enhancements.update_one(
+            {"id": enhancement_id},
+            {"$set": {
+                "implementation_status": "implementing", 
+                "deployment_simulation": {
+                    "simulated_at": datetime.now().isoformat(),
+                    "status": "success",
+                    "target_url": "https://musicjam.yazwho.com/",
+                    "estimated_impact": "High user engagement improvement"
+                }
+            }}
+        )
+        
+        return {
+            "status": "simulation_complete",
+            "enhancement_id": enhancement_id,
+            "feature": enhancement['feature_name'],
+            "simulation_result": "Successfully simulated deployment to MusicJam",
+            "next_steps": "Ready for production deployment",
+            "target_url": "https://musicjam.yazwho.com/"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
 @app.get("/api/oauth/google/url")
 async def get_google_oauth_url():
     """Get Google OAuth authorization URL"""
