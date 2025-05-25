@@ -155,6 +155,7 @@ function App() {
         {currentView === 'projects' && <Projects projects={projects} fetchProjects={fetchProjects} />}
         {currentView === 'musicjam' && <MusicJam enhancements={enhancements} generateAIEnhancement={generateAIEnhancement} fetchEnhancements={fetchEnhancements} />}
         {currentView === 'deployments' && <Deployments repositories={repositories} fetchRepositories={fetchRepositories} deployProject={deployProject} />}
+        {currentView === 'deployment-center' && <DeploymentCenter enhancements={enhancements} fetchEnhancements={fetchEnhancements} />}
         {currentView === 'ai-tools' && <AITools />}
       </main>
     </div>
