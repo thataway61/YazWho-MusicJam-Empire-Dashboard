@@ -635,10 +635,13 @@ function DeploymentCenter({ enhancements, fetchEnhancements }) {
   const createDeploymentPlan = async (enhancementId) => {
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/deploy/enhancement/${enhancementId}`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'}/api/deploy/enhancement`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deployment_target: 'staging' })
+        body: JSON.stringify({ 
+          enhancement_id: enhancementId,
+          deployment_target: 'staging' 
+        })
       });
       const result = await response.json();
       setDeploymentPlan(result.deployment_plan);
