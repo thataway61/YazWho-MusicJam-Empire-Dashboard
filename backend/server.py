@@ -482,16 +482,99 @@ async def simulate_musicjam_deployment(enhancement_id: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")
-@app.get("/api/oauth/google/url")
-async def get_google_oauth_url():
-    """Get Google OAuth authorization URL"""
-    if not GOOGLE_OAUTH_CLIENT_ID:
-        raise HTTPException(status_code=400, detail="Google OAuth not configured")
-    
-    # Simplified OAuth URL generation
-    oauth_url = f"https://accounts.google.com/oauth/authorize?client_id={GOOGLE_OAUTH_CLIENT_ID}&redirect_uri=http://localhost:3000/auth/callback&scope=openid%20email%20profile&response_type=code"
-    
-    return {"oauth_url": oauth_url}
+# MusicJam Application Routes
+class JamSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    location: str
+    max_participants: Optional[int] = None
+    date: str
+    start_time: str
+    end_time: Optional[str] = None
+    skill_level: str  # All Levels, Beginner, Intermediate, Advanced
+    genres: List[str] = []
+    tab_playlist_id: Optional[str] = None
+    status: str = "upcoming"  # upcoming, ongoing, completed
+    created_by: str = "user"
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+class TabPlaylist(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: Optional[str] = None
+    tabs: List[Dict[str, str]] = []  # [{title, artist, tab_url, youtube_url}]
+    genres: List[str] = []
+    created_by: str = "user"
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+@app.get("/api/musicjam/jam-sessions")
+async def get_jam_sessions(
+    status: Optional[str] = None,
+    genre: Optional[str] = None,
+    sort_by: Optional[str] = "date"
+):
+    """Get jam sessions with filtering and sorting"""
+    try:
+        query = {}
+        if status and status != "All":
+            query["status"] = status.lower()
+        if genre and genre != "All Genres":
+            query["genres"] = {"$in": [genre]}
+        
+        sort_field = "date" if sort_by == "date" else "created_at"
+        jam_sessions = await db.jam_sessions.find(query, {"_id": 0}).sort(sort_field, 1).to_list(100)
+        return {"jam_sessions": jam_sessions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch jam sessions: {str(e)}")
+
+@app.post("/api/musicjam/jam-sessions")
+async def create_jam_session(jam_session: JamSession):
+    """Create a new jam session"""
+    try:
+        await db.jam_sessions.insert_one(jam_session.dict())
+        return {"message": "Jam session created successfully", "id": jam_session.id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create jam session: {str(e)}")
+
+@app.get("/api/musicjam/jam-sessions/{session_id}")
+async def get_jam_session(session_id: str):
+    """Get specific jam session details"""
+    try:
+        jam_session = await db.jam_sessions.find_one({"id": session_id}, {"_id": 0})
+        if not jam_session:
+            raise HTTPException(status_code=404, detail="Jam session not found")
+        return jam_session
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch jam session: {str(e)}")
+
+@app.get("/api/musicjam/playlists")
+async def get_playlists():
+    """Get all tab playlists"""
+    try:
+        playlists = await db.tab_playlists.find({}, {"_id": 0}).to_list(100)
+        return {"playlists": playlists}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch playlists: {str(e)}")
+
+@app.post("/api/musicjam/playlists")
+async def create_playlist(playlist: TabPlaylist):
+    """Create a new tab playlist"""
+    try:
+        await db.tab_playlists.insert_one(playlist.dict())
+        return {"message": "Playlist created successfully", "id": playlist.id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create playlist: {str(e)}")
+
+@app.get("/api/musicjam/genres")
+async def get_genres():
+    """Get available music genres"""
+    genres = [
+        "Rock", "Pop", "Jazz", "Blues", "Classical", "Folk", "Country", 
+        "R&B", "Hip Hop", "Electronic", "Metal", "Punk", "Reggae", 
+        "Funk", "Soul", "Alternative", "Indie", "World", "Latin", "Instrumental"
+    ]
+    return {"genres": genres}
 
 if __name__ == "__main__":
     import uvicorn
